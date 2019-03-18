@@ -9,6 +9,7 @@ from torch import nn
 from maskrcnn_benchmark.structures.image_list import to_image_list
 
 from ..backbone import build_backbone
+from ..multi_label import build_multilabel_cls
 from ..rpn.rpn import build_rpn
 from ..roi_heads.roi_heads import build_roi_heads
 
@@ -18,7 +19,7 @@ class GeneralizedRCNN(nn.Module):
     Main class for Generalized R-CNN. Currently supports boxes and masks.
     It consists of three main parts:
     - backbone
-    = rpn
+    - rpn
     - heads: takes the features + the proposals from the RPN and computes
         detections / masks from it.
     """
@@ -27,8 +28,9 @@ class GeneralizedRCNN(nn.Module):
         super(GeneralizedRCNN, self).__init__()
 
         self.backbone = build_backbone(cfg)
-        self.rpn = build_rpn(cfg)
-        self.roi_heads = build_roi_heads(cfg)
+        self.rpn = build_rpn(cfg, self.backbone.out_channels)
+        self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
+        self.multilabel_cls = build_multilabel_cls(cfg)
 
     def forward(self, images, targets=None):
         """
@@ -47,7 +49,15 @@ class GeneralizedRCNN(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         images = to_image_list(images)
         features = self.backbone(images.tensors)
+
+        # conduct multi-label classification on the top of features
+        one_hot = [target.get_field("one_hot") for target in targets]
+        one_hot = torch.stack(one_hot, dim=1)
+        multilabel_loss = self.multilabel_cls(features[-1], one_hot)
+
         proposals, proposal_losses = self.rpn(images, features, targets)
+
+
         if self.roi_heads:
             x, result, detector_losses = self.roi_heads(features, proposals, targets)
         else:
@@ -60,6 +70,7 @@ class GeneralizedRCNN(nn.Module):
             losses = {}
             losses.update(detector_losses)
             losses.update(proposal_losses)
+            losses.update(multilabel_loss)
             return losses
 
         return result

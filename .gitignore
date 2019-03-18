@@ -3,6 +3,7 @@ __pycache__
 _ext
 *.pyc
 *.so
+*.pdf
 maskrcnn_benchmark.egg-info/
 build/
 dist/
