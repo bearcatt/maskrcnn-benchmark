@@ -20,28 +20,36 @@ class MultiLabelCls(nn.Module):
             width_per_group=config.MODEL.RESNETS.WIDTH_PER_GROUP,
             stride_in_1x1=config.MODEL.RESNETS.STRIDE_IN_1X1,
             stride_init=None,
-            res2_out_channels=config.MODEL.RES2_OUT_CHANNELS,
+            res2_out_channels=config.MODEL.RESNETS.RES2_OUT_CHANNELS,
             dilation=config.MODEL.RESNETS.RES5_DILATION
         )
-        self.pooler = Global_ROI_Pool(output_size=7)
+        self.pooler = Global_ROI_Pool(output_size=(7, 7))
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-        num_classes = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES - 1 # 80
+        self.num_classes = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES - 1 # 80
         # 1024 for both c4 and FPN architecture
         num_inputs = config.MODEL.RESNETS.BACKBONE_OUT_CHANNELS
-        self.classifier = nn.Linear(num_inputs, num_classes)
+        self.classifier = nn.Linear(num_inputs, self.num_classes)
 
         nn.init.normal_(self.classifier.weight, mean=0, std=0.01)
         nn.init.constant_(self.classifier.bias, 0)
 
         self.softmax = nn.Softmax()
     
-    def forward(self, x, label):
+    def forward(self, x, labels_list):
         """
         Args:
             x: (N, C, H, W) float tensor
-            label: (N, C) float tensor
+            labels_list: list of (?,) float tensor
         """
+        labels_onehot_list = []
+        for labels in labels_list:
+            labels_onehot = torch.zeros(self.num_classes)
+            labels_onehot.scatter_(0, labels - 1, 1.0)
+            labels_onehot_list.append(labels_onehot)
+        labels_onehot_list = torch.stack(labels_onehot_list, dim=0)
+        label = labels_onehot_list / labels_onehot_list.sum(dim=1, keepdim=True)
+
         x = self.pooler(x)
         x = self.head(x)
         x = self.avgpool(x)

@@ -10,27 +10,17 @@ from maskrcnn_benchmark.structures.image_list import to_image_list
 
 from ..backbone import build_backbone
 from ..multi_label import build_multilabel_cls
-from ..rpn.rpn import build_rpn
-from ..roi_heads.roi_heads import build_roi_heads
 
 
-class GeneralizedRCNN(nn.Module):
+class ArchSumTable(nn.Module):
     """
-    Main class for Generalized R-CNN. Currently supports boxes and masks.
-    It consists of three main parts:
-    - backbone
-    - rpn
-    - heads: takes the features + the proposals from the RPN and computes
-        detections / masks from it.
+    Main class for Sum table Architectures. Currently supports boxes.
     """
 
     def __init__(self, cfg):
-        super(GeneralizedRCNN, self).__init__()
+        super(ArchSumTable, self).__init__()
 
         self.backbone = build_backbone(cfg)
-        self.rpn = build_rpn(cfg, self.backbone.out_channels)
-        self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
-        self.multilabel_cls = build_multilabel_cls(cfg)
 
     def forward(self, images, targets=None):
         """
@@ -50,11 +40,13 @@ class GeneralizedRCNN(nn.Module):
         images = to_image_list(images)
         features = self.backbone(images.tensors)
 
-        # conduct multi-label classification on the top of features
-        labels_list = [target.get_field("labels") for target in targets]
-        multilabel_loss = self.multilabel_cls(features[-1], labels_list)
+        sum_table = image_to_sumtable(features)
 
-        proposals, proposal_losses = self.rpn(images, features, targets)
+        proposals = generate_proposals(features)
+
+        proposals_features = 
+
+
 
         if self.roi_heads:
             x, result, detector_losses = self.roi_heads(features, proposals, targets)

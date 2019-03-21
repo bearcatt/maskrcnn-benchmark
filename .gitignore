@@ -3,6 +3,7 @@ __pycache__
 _ext
 *.pyc
 *.so
+*.pyd
 *.pdf
 maskrcnn_benchmark.egg-info/
 build/
@@ -25,7 +26,9 @@ dist/
 
 # Pycharm editor settings
 .idea
+.vscode
 
 # project dirs
 /datasets
 /models
+/cocoapi

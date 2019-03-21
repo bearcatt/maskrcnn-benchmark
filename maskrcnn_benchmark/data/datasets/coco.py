@@ -79,11 +79,6 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         classes = torch.tensor(classes)
         target.add_field("labels", classes)
 
-        one_hot = torch.FloatTensor(len(self.coco.cats)).zero_()
-        one_hot[classes - 1] = 1.0
-        one_hot = one_hot / one_hot.sum()
-        target.add_field("one_hot", one_hot)
-
         masks = [obj["segmentation"] for obj in anno]
         masks = SegmentationMask(masks, img.size)
         target.add_field("masks", masks)
