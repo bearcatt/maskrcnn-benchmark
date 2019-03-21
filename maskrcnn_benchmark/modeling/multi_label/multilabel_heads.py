@@ -44,7 +44,7 @@ class MultiLabelCls(nn.Module):
         """
         labels_onehot_list = []
         for labels in labels_list:
-            labels_onehot = torch.zeros(self.num_classes)
+            labels_onehot = labels.new(self.num_classes).zero_()
             labels_onehot.scatter_(0, labels - 1, 1.0)
             labels_onehot_list.append(labels_onehot)
         labels_onehot_list = torch.stack(labels_onehot_list, dim=0)
