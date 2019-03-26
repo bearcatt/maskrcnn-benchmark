@@ -32,3 +32,7 @@ dist/
 /datasets
 /models
 /cocoapi
+
+# log file
+last_checkpoint
+log.txt
