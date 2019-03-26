@@ -49,12 +49,11 @@ __global__ void GlobalRoIPoolFForward(
         bottom_data + (n * channels + c) * height * width;
     for (int h = hstart; h < hend; ++h) {
       for (int w = wstart; w < wend; ++w) {
-        int bottom_index = h * width + w;
-        meanval += offset_bottom_data[bottom_index];
+        meanval += offset_bottom_data[h * width + w];
       }
     }
-    T count = static_cast<T>((hend - hstart + 1) / (wend - wstart + 1));
-    top_data[index] = meanval / count;
+    // T count = static_cast<T>(hend - hstart + 1) * static_cast<T>(wend - wstart + 1);
+    top_data[index] = meanval; //  / count;
   }
 }
 
@@ -91,21 +90,21 @@ __global__ void GlobalRoIPoolFBackward(
     wstart = min(max(wstart, 0), width);
     wend = min(max(wend, 0), width);
 
-    T count = static_cast<T>((hend - hstart + 1) / (wend - wstart + 1));
-    T grad = offset_top_diff[ph * pooled_width + pw] / count;
+    // T count = static_cast<T>(hend - hstart + 1) * static_cast<T>(wend - wstart + 1);
+    // T grad = static_cast<T>(offset_top_diff[ph * pooled_width + pw]) / count;
     for (int h = hstart; h < hend; ++h) {
       for (int w = wstart; w < wend; ++w) {
         atomicAdd(
-            offset_bottom_diff + h * width + w, static_cast<T>(grad));
+            offset_bottom_diff + h * width + w,
+            static_cast<T>(offset_top_diff[ph * pooled_width + pw]));
       }
     }
   }
 }
 
-std::tuple<at::Tensor, at::Tensor> GlobalROIPool_forward_cuda(
-                                const at::Tensor& input,
-                                const int pooled_height,
-                                const int pooled_width) {
+at::Tensor GlobalROIPool_forward_cuda(const at::Tensor& input,
+                                      const int pooled_height,
+                                      const int pooled_width) {
   AT_ASSERTM(input.type().is_cuda(), "input must be a CUDA tensor");
 
   auto batch_size = input.size(0);
@@ -135,7 +134,7 @@ std::tuple<at::Tensor, at::Tensor> GlobalROIPool_forward_cuda(
          width,
          pooled_height,
          pooled_width,
-         output.data<scalar_t>(),
+         output.data<scalar_t>());
   });
   THCudaCheck(cudaGetLastError());
   return output;
@@ -173,7 +172,7 @@ at::Tensor GlobalROIPool_backward_cuda(const at::Tensor& grad,
          width,
          pooled_height,
          pooled_width,
-         grad_input.data<scalar_t>(),
+         grad_input.data<scalar_t>());
   });
   THCudaCheck(cudaGetLastError());
   return grad_input;

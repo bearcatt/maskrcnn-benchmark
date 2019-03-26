@@ -51,8 +51,10 @@ class GeneralizedRCNN(nn.Module):
         features = self.backbone(images.tensors)
 
         # conduct multi-label classification on the top of features
-        labels_list = [target.get_field("labels") for target in targets]
-        multilabel_loss = self.multilabel_cls(features[-1], labels_list)
+        multilable_loss = {}
+        if self.training:
+            labels_list = [target.get_field("labels") for target in targets]
+            multilabel_loss = self.multilabel_cls(features[-1], labels_list)
 
         proposals, proposal_losses = self.rpn(images, features, targets)
 

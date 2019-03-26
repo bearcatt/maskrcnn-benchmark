@@ -23,12 +23,12 @@ class MultiLabelCls(nn.Module):
             res2_out_channels=config.MODEL.RESNETS.RES2_OUT_CHANNELS,
             dilation=config.MODEL.RESNETS.RES5_DILATION
         )
-        self.pooler = Global_ROI_Pool(output_size=(7, 7))
+        self.pooler = nn.AdaptiveAvgPool2d(7)
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
         self.num_classes = config.MODEL.ROI_BOX_HEAD.NUM_CLASSES - 1 # 80
         # 1024 for both c4 and FPN architecture
-        num_inputs = config.MODEL.RESNETS.BACKBONE_OUT_CHANNELS
+        num_inputs = config.MODEL.RESNETS.BACKBONE_OUT_CHANNELS * 2
         self.classifier = nn.Linear(num_inputs, self.num_classes)
 
         nn.init.normal_(self.classifier.weight, mean=0, std=0.01)
@@ -44,7 +44,7 @@ class MultiLabelCls(nn.Module):
         """
         labels_onehot_list = []
         for labels in labels_list:
-            labels_onehot = labels.new(self.num_classes).zero_()
+            labels_onehot = labels.new(self.num_classes).zero_().float()
             labels_onehot.scatter_(0, labels - 1, 1.0)
             labels_onehot_list.append(labels_onehot)
         labels_onehot_list = torch.stack(labels_onehot_list, dim=0)
@@ -55,8 +55,9 @@ class MultiLabelCls(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         logits = self.classifier(x)
-        pred = torch.nn.functional.softmax(logits)
-        return torch.nn.functional.cross_entropy(pred, label)
+        pred = torch.nn.functional.softmax(logits, dim=1)
+        loss = torch.mean(torch.sum(-label * torch.log(pred), dim=1), dim=0) / 10.0
+        return {"multi-label-loss": loss}
 
 
 # class Global_ROI_Pool(nn.Module):
